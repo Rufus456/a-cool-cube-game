@@ -9,11 +9,14 @@ DRAG = 1
 CUBE_SIZE = 40
 BREAK_SPEED = 9.5
 PPM = 50
+MAGNET_R = 200
+MAGNET_S = 0.08
 
 MATERIALS = {
     "Wood": {"color": "#a0662b", "density": 0.6, "bounce": 0.35, "friction": 0.85, "break": False},
     "Metal": {"color": "#9aa0a6", "density": 1.6, "bounce": 0.15, "friction": 0.90, "break": False},
     "Ice": {"color": "#9fdfff", "density": 0.9, "bounce": 0.55, "friction": 0.98, "break": True},
+    "Magnet": {"color": "#f13a3a", "density": 1.67, "bounce": 0.10, "friction": 0.95, "break": False},
     "Rubber": {"color": "#ff5b5b", "density": 0.5, "bounce": 0.85, "friction": 0.80, "break": False},
     "Glass": {"color": "#d7f0ff", "density": 0.7, "bounce": 0.60, "friction": 0.95, "break": True}
 }
@@ -21,8 +24,8 @@ MATERIALS = {
 root = tk.Tk()
 root.title("Cube Simulator")
 
-width = 800
-height = 500
+width = 1440
+height = 720
 
 cubes = []
 shards = []
@@ -452,46 +455,107 @@ def setup_canvas():
     canvas.bind("<B1-Motion>", mouse_move)
     canvas.bind("<ButtonRelease-1>", mouse_up)
 
-
-
 def loop():
     for cube in cubes:
         upd_cube(cube)
 
-    for i in range(len(cubes)):
-        for j in range(i + 1, len(cubes)):
-            collide(cubes[i], cubes[j])
-
+GRID_SIZE = 100
+grid = {}
+ 
+def get_nearby_cubes(cube):
+    cell_x = int(cube["x"] // GRID_SIZE)
+    cell_y = int(cube["y"] // GRID_SIZE)
+    nearby = []
+    for dx in [-1, 0, 1]:
+        for dy in [-1, 0, 1]:
+            key = (cell_x + dx, cell_y + dy)
+            nearby.extend(grid.get(key, []))
+    return nearby
+ 
+ 
+def next_magnet():
+    for magnet in cubes:
+        if magnet["material"] != "Magnet":
+            continue
+        
+        mx, my = center(magnet)
+        
+        for metal in cubes:
+            if metal is magnet or metal["material"] != "Metal":
+                continue
+            
+            mtx, mty = center(metal)
+            dx = mx - mtx
+            dy = my - mty
+            distance = math.hypot(dx, dy)
+            
+            if distance > MAGNET_R or distance < 1:
+                continue
+            
+            norm_x = dx / distance
+            norm_y = dy / distance
+            strength = MAGNET_S * (1 - distance / MAGNET_R)
+            
+            metal["vx"] += norm_x * strength
+            metal["vy"] += norm_y * strength
+ 
+ 
+def loop():
+    global grid
+    
+    grid.clear()
+    for cube in cubes:
+        cell_x = int(cube["x"] // GRID_SIZE)
+        cell_y = int(cube["y"] // GRID_SIZE)
+        key = (cell_x, cell_y)
+        if key not in grid:
+            grid[key] = []
+        grid[key].append(cube)
+    
+    for cube in cubes:
+        upd_cube(cube)
+    
+    checked = set()
+    for cube in cubes:
+        nearby = get_nearby_cubes(cube)
+        for other in nearby:
+            pair = tuple(sorted([id(cube), id(other)]))
+            if pair in checked or cube is other:
+                continue
+            checked.add(pair)
+            collide(cube, other)
+    
     next_rubber()
-
+    next_magnet()
+    
     for cube in cubes[:]:
         if cube["broken"]:
             exit_cube(cube)
             cubes.remove(cube)
-
+    
     for shard in shards[:]:
         upd_shard(shard)
-
         if shard["life"] <= 0:
             canvas.delete(shard["shape"])
             shards.remove(shard)
-
+    
     next_counter()
     root.after(16, loop)
-
+ 
+ 
 def next_counter():
     if cubes:
         velocity = max(speed(cube) for cube in cubes)
     else:
         velocity = 0
-
+ 
     counter.config(
         text=f"Cubes: {len(cubes)}    Velocity: {velocity:.2f}.  This is a vacuum chamber.. its ALWAYS 9.81"
     )
-
-
+ 
+ 
 setup_controls()
 setup_canvas()
 loop()
-
+ 
 root.mainloop()
