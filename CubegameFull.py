@@ -11,6 +11,7 @@ BREAK_SPEED = 9.5
 PPM = 50
 MAGNET_R = 200
 MAGNET_S = 0.08
+gravity_on = True
 
 MATERIALS = {
     "Wood": {"color": "#a0662b", "density": 0.6, "bounce": 0.35, "friction": 0.85, "break": False},
@@ -18,7 +19,8 @@ MATERIALS = {
     "Ice": {"color": "#9fdfff", "density": 0.9, "bounce": 0.55, "friction": 0.98, "break": True},
     "Magnet": {"color": "#f13a3a", "density": 1.67, "bounce": 0.10, "friction": 0.95, "break": False},
     "Rubber": {"color": "#ff5b5b", "density": 0.5, "bounce": 0.85, "friction": 0.80, "break": False},
-    "Glass": {"color": "#d7f0ff", "density": 0.7, "bounce": 0.60, "friction": 0.95, "break": True}
+    "Glass": {"color": "#d7f0ff", "density": 0.7, "bounce": 0.60, "friction": 0.95, "break": True},
+    "Lava (broken)": {"color": "#f1581b", "density": 0.7, "bounce": 0.60, "friction": 0.95, "break": False},
 }
 
 root = tk.Tk()
@@ -115,7 +117,9 @@ def upd_cube(cube):
     if cube["held"]:
         return
 
-    cube["vy"] += GRAVITY * TIME_STEP
+    if gravity_on:
+        cube["vy"] += GRAVITY * TIME_STEP
+    
     cube["vx"] *= DRAG
     cube["vy"] *= DRAG
 
@@ -184,7 +188,9 @@ def cre_shard(x, y, color, vx, vy):
 
 
 def upd_shard(shard):
-    shard["vy"] += GRAVITY
+    if gravity_on:
+        shard["vy"] += GRAVITY
+    
     shard["x"] += shard["vx"]
     shard["y"] += shard["vy"]
     shard["life"] -= 1
@@ -401,11 +407,17 @@ def mouse_up(event):
     dragged_cube["held"] = False
     dragged_cube = None
 
-# RichNix / Halmest
+
+def toggle_gravity():
+    global gravity_on
+    gravity_on = not gravity_on
+    gravity_btn.config(text=f"Gravity: {'ON' if gravity_on else 'OFF'}")
+
 
 def setup_controls():
     global selected_material
     global counter
+    global gravity_btn
 
     top = tk.Frame(root)
     top.pack(fill="x", padx=8, pady=8)
@@ -435,6 +447,15 @@ def setup_controls():
         command=clear
     ).pack(side="left", padx=4)
 
+    gravity_btn = tk.Button(
+        top,
+        text="Gravity: ON",
+        command=toggle_gravity,
+        bg="#90EE90" if gravity_on 
+        else "#FFB6C6"
+    )
+    gravity_btn.pack(side="left", padx=4)
+
     counter = tk.Label(top, text="Cubes: 0")
     counter.pack(side="left", padx=12)
 
@@ -455,13 +476,11 @@ def setup_canvas():
     canvas.bind("<B1-Motion>", mouse_move)
     canvas.bind("<ButtonRelease-1>", mouse_up)
 
-def loop():
-    for cube in cubes:
-        upd_cube(cube)
 
 GRID_SIZE = 100
 grid = {}
- 
+
+
 def get_nearby_cubes(cube):
     cell_x = int(cube["x"] // GRID_SIZE)
     cell_y = int(cube["y"] // GRID_SIZE)
@@ -471,8 +490,8 @@ def get_nearby_cubes(cube):
             key = (cell_x + dx, cell_y + dy)
             nearby.extend(grid.get(key, []))
     return nearby
- 
- 
+
+
 def next_magnet():
     for magnet in cubes:
         if magnet["material"] != "Magnet":
@@ -498,8 +517,8 @@ def next_magnet():
             
             metal["vx"] += norm_x * strength
             metal["vy"] += norm_y * strength
- 
- 
+
+
 def loop():
     global grid
     
@@ -541,8 +560,8 @@ def loop():
     
     next_counter()
     root.after(16, loop)
- 
- 
+
+
 def next_counter():
     if cubes:
         velocity = max(speed(cube) for cube in cubes)
@@ -550,12 +569,12 @@ def next_counter():
         velocity = 0
  
     counter.config(
-        text=f"Cubes: {len(cubes)}    Velocity: {velocity:.2f}.  This is a vacuum chamber.. its ALWAYS 9.81"
+        text=f"Cubes: {len(cubes)}    Velocity: {velocity:.2f}. idk what to put here so HAPPY BIRTHDAY <3"
     )
- 
- 
+
+
 setup_controls()
 setup_canvas()
 loop()
- 
+
 root.mainloop()
